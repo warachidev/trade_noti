@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { PriceChart } from './components/PriceChart'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './components/ui/card'
 import { Badge } from './components/ui/badge'
+import { Button } from './components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs'
-import { TrendingUp, TrendingDown, Activity, AlertTriangle, Clock } from 'lucide-react'
+import { TrendingUp, TrendingDown, Activity, AlertTriangle, Clock, RefreshCw } from 'lucide-react'
 
 interface MarketStatus {
   symbol: string
@@ -73,16 +74,16 @@ function formatTimeAgo(timestamp: string | null): string {
 }
 
 function App() {
-  const { data: marketStatus, isLoading: loadingMarket } = useQuery({
+  const { data: marketStatus, isLoading: loadingMarket, refetch: refetchMarket } = useQuery({
     queryKey: ['marketStatus'],
     queryFn: fetchMarketStatus,
-    refetchInterval: 1000 * 60 * 5,
+    refetchInterval: 1000 * 30,
   })
 
   const { data: alerts, isLoading: loadingAlerts } = useQuery({
     queryKey: ['alerts'],
     queryFn: fetchAlerts,
-    refetchInterval: 1000 * 60 * 2,
+    refetchInterval: 1000 * 60,
   })
 
   return (
@@ -96,6 +97,15 @@ function App() {
             <span className="text-xs text-gray-500">
               {marketStatus?.lastUpdate ? `Updated ${formatTimeAgo(marketStatus.lastUpdate)}` : 'Waiting for data...'}
             </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => refetchMarket()}
+              disabled={loadingMarket}
+              className="h-8 w-8"
+            >
+              <RefreshCw className={`h-4 w-4 ${loadingMarket ? 'animate-spin' : ''}`} />
+            </Button>
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
           </div>
         </div>
