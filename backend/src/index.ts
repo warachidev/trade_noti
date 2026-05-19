@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cron from 'node-cron';
+import path from 'path';
 import { initDatabase, saveDatabase } from './db/database';
 import { analyzeMarket } from './services/analyzer';
 import { loadSettings, saveSettings, type AppSettings } from './services/settings';
@@ -47,6 +48,14 @@ async function main() {
   app.use(express.json());
 
   app.use('/api', createMarketRouter());
+
+  if (process.env.NODE_ENV === 'production') {
+    const frontendDist = path.join(__dirname, '../../frontend/dist');
+    app.use(express.static(frontendDist));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.join(frontendDist, 'index.html'));
+    });
+  }
 
   app.get('/api/settings', (_req, res) => {
     res.json(loadSettings());
