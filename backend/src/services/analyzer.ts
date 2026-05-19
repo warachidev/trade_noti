@@ -15,7 +15,21 @@ interface AnalysisResult {
   alert: string | null;
 }
 
-export async function analyzeMarket(symbol: string = 'BTCUSDT'): Promise<AnalysisResult> {
+interface AnalyzeMarketOptions {
+  symbol?: string;
+  rsiOversold?: number;
+  rsiOverbought?: number;
+  alertsEnabled?: boolean;
+}
+
+export async function analyzeMarket(options: AnalyzeMarketOptions = {}): Promise<AnalysisResult> {
+  const {
+    symbol = 'BTCUSDT',
+    rsiOversold = 30,
+    rsiOverbought = 70,
+    alertsEnabled = true,
+  } = options;
+
   const result: AnalysisResult = {
     symbol,
     price: 0,
@@ -55,15 +69,15 @@ export async function analyzeMarket(symbol: string = 'BTCUSDT'): Promise<Analysi
       VALUES (?, ?, ?, ?, ?, ?)
     `, [symbol, result.price, result.rsi, result.ma50, result.ma200, result.fearGreed]);
 
-    if (result.isBullish && result.rsi !== null && result.rsi < 30) {
-      result.alert = `🚨 ¡ALERTA! ${symbol} está en sobreventa (RSI: ${result.rsi.toFixed(1)}) dentro de una macro tendencia alcista (MA50: ${result.ma50?.toFixed(0)} > MA200: ${result.ma200?.toFixed(0)}). Excelente oportunidad de compra a corto/mediano plazo.`;
+    if (alertsEnabled && result.isBullish && result.rsi !== null && result.rsi < rsiOversold) {
+      result.alert = `🚨 ¡ALERTA! ${symbol} está en sobreventa (RSI: ${result.rsi.toFixed(1)} < ${rsiOversold}) dentro de una macro tendencia alcista (MA50: ${result.ma50?.toFixed(0)} > MA200: ${result.ma200?.toFixed(0)}). Excelente oportunidad de compra a corto/mediano plazo.`;
       await sendAlert(result.alert);
       db.run(`
         INSERT INTO alerts (symbol, type, message)
         VALUES (?, 'BUY', ?)
       `, [symbol, result.alert]);
-    } else if (!result.isBullish && result.rsi !== null && result.rsi > 70) {
-      result.alert = `⚠️ OJO: ${symbol} está sobrecomprado (RSI: ${result.rsi.toFixed(1)}) en un mercado bajista (MA50: ${result.ma50?.toFixed(0)} < MA200: ${result.ma200?.toFixed(0)}). Riesgo de caída inminente.`;
+    } else if (alertsEnabled && !result.isBullish && result.rsi !== null && result.rsi > rsiOverbought) {
+      result.alert = `⚠️ OJO: ${symbol} está sobrecomprado (RSI: ${result.rsi.toFixed(1)} > ${rsiOverbought}) en un mercado bajista (MA50: ${result.ma50?.toFixed(0)} < MA200: ${result.ma200?.toFixed(0)}). Riesgo de caída inminente.`;
       await sendAlert(result.alert);
       db.run(`
         INSERT INTO alerts (symbol, type, message)

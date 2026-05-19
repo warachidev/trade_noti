@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { PriceChart } from './components/PriceChart'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './components/ui/card'
 import { Badge } from './components/ui/badge'
@@ -25,6 +26,24 @@ interface Alert {
   timestamp: string
 }
 
+interface AppSettings {
+  symbol: string
+  checkIntervalMinutes: number
+  rsiOversold: number
+  rsiOverbought: number
+  alertsEnabled: boolean
+}
+
+const SYMBOLS = [
+  { value: 'BTCUSDT', label: 'BTC/USDT' },
+  { value: 'ETHUSDT', label: 'ETH/USDT' },
+  { value: 'SOLUSDT', label: 'SOL/USDT' },
+  { value: 'BNBUSDT', label: 'BNB/USDT' },
+  { value: 'XRPUSDT', label: 'XRP/USDT' },
+  { value: 'ADAUSDT', label: 'ADA/USDT' },
+  { value: 'DOGEUSDT', label: 'DOGE/USDT' },
+]
+
 async function fetchMarketStatus(): Promise<MarketStatus> {
   const response = await fetch('/api/market-status')
   if (!response.ok) throw new Error('Failed to fetch market status')
@@ -34,6 +53,22 @@ async function fetchMarketStatus(): Promise<MarketStatus> {
 async function fetchAlerts(): Promise<Alert[]> {
   const response = await fetch('/api/alerts')
   if (!response.ok) throw new Error('Failed to fetch alerts')
+  return response.json()
+}
+
+async function fetchSettings(): Promise<AppSettings> {
+  const response = await fetch('/api/settings')
+  if (!response.ok) throw new Error('Failed to fetch settings')
+  return response.json()
+}
+
+async function updateSettings(settings: Partial<AppSettings>): Promise<AppSettings> {
+  const response = await fetch('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  })
+  if (!response.ok) throw new Error('Failed to update settings')
   return response.json()
 }
 
@@ -86,6 +121,24 @@ function App() {
     refetchInterval: 1000 * 60,
   })
 
+  const { data: settings, refetch: refetchSettings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: fetchSettings,
+  })
+
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const queryClient = useQueryClient()
+
+  const updateSettingsMutation = useMutation({
+    mutationFn: updateSettings,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: ['marketStatus'] })
+      refetchMarket()
+      refetchSettings()
+    },
+  })
+
   return (
     <div className="min-h-screen bg-[#0f1117] text-gray-200">
       <header className="border-b border-gray-800 bg-[#161822]">
@@ -112,12 +165,13 @@ function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        <Tabs defaultValue="dashboard" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-white">Dashboard</h2>
             <TabsList>
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="alerts">Alerts</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
           </div>
 
@@ -284,6 +338,26 @@ function App() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="settings">
+            <Card>
+              <CardHeader>
+                <CardTitle>Configuration</CardTitle>
+                <CardDescription>Adjust analysis parameters and alert thresholds</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {settings ? (
+                  <SettingsForm
+                    settings={settings}
+                    onUpdate={updateSettingsMutation.mutate}
+                    isSaving={updateSettingsMutation.isPending}
+                  />
+                ) : (
+                  <div className="text-center py-8 text-gray-500">Loading settings...</div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </main>
     </div>
@@ -312,6 +386,118 @@ function StatCard({
         <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
       </CardContent>
     </Card>
+  )
+}
+
+function SettingsForm({
+  settings,
+  onUpdate,
+  isSaving,
+}: {
+  settings: AppSettings
+  onUpdate: (data: Partial<AppSettings>) => void
+  isSaving: boolean
+}) {
+  const [form, setForm] = useState<AppSettings>(settings)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    onUpdate(form)
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-lg">
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">Trading Pair</label>
+        <select
+          value={form.symbol}
+          onChange={(e) => setForm({ ...form, symbol: e.target.value })}
+          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          {SYMBOLS.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">
+          Check Interval (minutes)
+        </label>
+        <input
+          type="number"
+          min={1}
+          max={120}
+          value={form.checkIntervalMinutes}
+          onChange={(e) =>
+            setForm({ ...form, checkIntervalMinutes: parseInt(e.target.value) || 15 })
+          }
+          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <p className="text-xs text-gray-500 mt-1">How often the analyzer checks the market</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            RSI Oversold Threshold
+          </label>
+          <input
+            type="number"
+            min={10}
+            max={45}
+            value={form.rsiOversold}
+            onChange={(e) =>
+              setForm({ ...form, rsiOversold: parseInt(e.target.value) || 30 })
+            }
+            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">Buy signal when RSI below this value</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            RSI Overbought Threshold
+          </label>
+          <input
+            type="number"
+            min={55}
+            max={90}
+            value={form.rsiOverbought}
+            onChange={(e) =>
+              setForm({ ...form, rsiOverbought: parseInt(e.target.value) || 70 })
+            }
+            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">Sell signal when RSI above this value</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={form.alertsEnabled}
+          onClick={() => setForm({ ...form, alertsEnabled: !form.alertsEnabled })}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            form.alertsEnabled ? 'bg-blue-600' : 'bg-gray-700'
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              form.alertsEnabled ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+        <span className="text-sm text-gray-300">Enable Telegram Alerts</span>
+      </div>
+
+      <Button type="submit" disabled={isSaving}>
+        {isSaving ? 'Saving...' : 'Save Settings'}
+      </Button>
+    </form>
   )
 }
 
