@@ -14,22 +14,27 @@
         ▼                                                        │
 [ Backend (Node.js + Express) ] ◄───────────────────────────────┘
   │                                                              │
-  ├── Cron Job (cada 15 min)                                     │
+  ├── Cron Job (dinámico, configurable)                          │
   │     ├── Consulta APIs                                        │
   │     ├── Calcula indicadores (SMA, RSI)                       │
-  │     ├── Evalúa condiciones de alerta                         │
+  │     ├── Evalúa condiciones de alerta (umbrales configurables)│
   │     ├── Guarda snapshot en SQLite                            │
-  │     └── Envía Telegram si hay alerta                         │
+  │     └── Envía Telegram si hay alerta (activable/desactivable)│
   │                                                              │
   ├── REST API                                                   │
   │     ├── GET /api/market-status                               │
   │     ├── GET /api/alerts                                      │
   │     ├── GET /api/chart-data                                  │
+  │     ├── GET /api/settings                                    │
+  │     ├── PUT /api/settings                                    │
   │     └── GET /health                                          │
   │                                                              │
-  └── SQLite (sql.js)                                            │
-        ├── market_snapshots                                     │
-        └── alerts                                               │
+  ├── SQLite (sql.js)                                            │
+  │     ├── market_snapshots                                     │
+  │     └── alerts                                               │
+  │                                                              │
+  └── settings.json (data/)                                      │
+        └── Configuración persistente del sistema                                               │
         │                                                        │
         ▼                                                        │
 [ Frontend (React + Vite) ] ◄───────────────────────────────────┘
@@ -100,14 +105,15 @@ noti_trade/
 │   ├── data/                       # SQLite database (generado en runtime)
 │   │   └── notitrade.sqlite
 │   └── src/
-│       ├── index.ts                # Entry point: Express + Cron + DB init
+│       ├── index.ts                # Entry point: Express + Cron dinámico + DB init + Settings
 │       ├── api/
 │       │   ├── binance.ts          # Binance API client (klines, precios)
 │       │   ├── feargreed.ts        # Alternative.me API client
 │       │   └── routes.ts           # Express router (endpoints REST)
 │       ├── services/
-│       │   ├── analyzer.ts         # Lógica principal de análisis
-│       │   └── telegram.ts         # Servicio de alertas Telegram
+│       │   ├── analyzer.ts         # Lógica principal de análisis (opciones configurables)
+│       │   ├── telegram.ts         # Servicio de alertas Telegram
+│       │   └── settings.ts         # Carga y persistencia de configuración (JSON)
 │       ├── db/
 │       │   └── database.ts         # SQLite init, queries, persistencia
 │       ├── types/
@@ -288,13 +294,42 @@ Los componentes siguen el patrón de Shadcn UI: código fuente en el proyecto, s
 
 ---
 
+## Configuración del Sistema (Settings)
+
+La configuración se almacena en `data/settings.json` y se carga en cada inicio del backend.
+
+### Estructura de `AppSettings`
+
+| Campo | Tipo | Default | Descripción |
+|-------|------|---------|-------------|
+| `symbol` | string | `BTCUSDT` | Par de trading a analizar |
+| `checkIntervalMinutes` | number | `15` | Intervalo del cron job en minutos |
+| `rsiOversold` | number | `30` | Umbral RSI para alerta de compra |
+| `rsiOverbought` | number | `70` | Umbral RSI para alerta de venta |
+| `alertsEnabled` | boolean | `true` | Si se envían alertas por Telegram |
+
+### Endpoints de Settings
+
+- **`GET /api/settings`**: Retorna la configuración actual.
+- **`PUT /api/settings`**: Actualiza la configuración. Acepta un objeto parcial. Al cambiar `checkIntervalMinutes` o `symbol`, el cron job se reinicia automáticamente.
+
+### Persistencia
+
+Los settings se guardan en `data/settings.json` (JSON plano). El archivo se crea automáticamente al primer `PUT`. Si no existe, se usan los valores por defecto.
+
 ---
 
 ## Funciones Principales del Sistema
 
-### `analyzeMarket(symbol: string)` — `backend/src/services/analyzer.ts`
+### `analyzeMarket(options: AnalyzeMarketOptions)` — `backend/src/services/analyzer.ts`
 
 Función central del sistema. Ejecutada por el cron job cada N minutos.
+
+**Parámetros (`AnalyzeMarketOptions`):**
+- `symbol`: Par de trading (default: `BTCUSDT`)
+- `rsiOversold`: Umbral de sobreventa (default: `30`)
+- `rsiOverbought`: Umbral de sobrecompra (default: `70`)
+- `alertsEnabled`: Si enviar alertas (default: `true`)
 
 **Flujo:**
 1. Obtiene 210 velas diarias de Binance (necesarias para MA200)
@@ -303,10 +338,10 @@ Función central del sistema. Ejecutada por el cron job cada N minutos.
 4. Calcula RSI(14) sobre datos horarios
 5. Obtiene Fear & Greed Index de Alternative.me
 6. Determina si el mercado es alcista (MA50 > MA200)
-7. Evalúa condiciones de alerta:
-   - **BUY**: alcista + RSI < 30
-   - **SELL**: bajista + RSI > 70
-8. Si hay alerta, envía por Telegram y guarda en DB
+7. Evalúa condiciones de alerta usando los umbrales configurables:
+   - **BUY**: alcista + RSI < `rsiOversold`
+   - **SELL**: bajista + RSI > `rsiOverbought`
+8. Si `alertsEnabled` y hay alerta, envía por Telegram y guarda en DB
 9. Guarda snapshot en `market_snapshots`
 10. Persiste la base de datos a disco
 
@@ -395,7 +430,9 @@ Esto significa que las peticiones a `/api/*` en el frontend (puerto 5173) se ree
 
 - El código se ejecuta con `tsx watch`, los cambios se aplican automáticamente.
 - La base de datos se guarda en `data/notitrade.sqlite`. Si necesitas resetear, elimina el archivo.
+- La configuración se guarda en `data/settings.json`. Si necesitas resetear a los valores por defecto, elimina el archivo.
 - Las alertas de Telegram requieren `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` en `.env`.
+- El cron job se reinicia automáticamente cuando se actualiza `checkIntervalMinutes` o `symbol` via `PUT /api/settings`.
 
 ### Al modificar el frontend
 
@@ -413,4 +450,4 @@ Esto significa que las peticiones a `/api/*` en el frontend (puerto 5173) se ree
 
 ### Agregar nuevos símbolos
 
-El parámetro `symbol` en `analyzeMarket()` y `getChartData()` acepta cualquier par válido de Binance (ej: `ETHUSDT`, `SOLUSDT`). Para soportar múltiples símbolos simultáneamente, se necesitaría iterar sobre un array de símbolos en el cron job.
+El parámetro `symbol` en `analyzeMarket()` y `getChartData()` acepta cualquier par válido de Binance (ej: `ETHUSDT`, `SOLUSDT`). La lista de símbolos disponibles en el UI se define en `App.tsx` en el array `SYMBOLS`. Para soportar múltiples símbolos simultáneamente, se necesitaría iterar sobre un array de símbolos en el cron job.

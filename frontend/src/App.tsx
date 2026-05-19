@@ -72,6 +72,11 @@ async function updateSettings(settings: Partial<AppSettings>): Promise<AppSettin
   return response.json()
 }
 
+async function triggerAnalysis(): Promise<void> {
+  const response = await fetch('/api/analyze', { method: 'POST' })
+  if (!response.ok) throw new Error('Failed to trigger analysis')
+}
+
 function getFearGreedLabel(value: number | null): string {
   if (value === null) return 'N/A'
   if (value <= 20) return 'Extreme Fear'
@@ -127,7 +132,20 @@ function App() {
   })
 
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const queryClient = useQueryClient()
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      await triggerAnalysis()
+      await refetchMarket()
+    } catch (error) {
+      console.error('Failed to refresh:', error)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   const updateSettingsMutation = useMutation({
     mutationFn: updateSettings,
@@ -153,11 +171,11 @@ function App() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => refetchMarket()}
-              disabled={loadingMarket}
+              onClick={handleRefresh}
+              disabled={isRefreshing || loadingMarket}
               className="h-8 w-8"
             >
-              <RefreshCw className={`h-4 w-4 ${loadingMarket ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </Button>
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
           </div>

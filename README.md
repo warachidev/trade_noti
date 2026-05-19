@@ -70,13 +70,15 @@ NotiTrade combina indicadores de tendencia (bajo riesgo) con indicadores de timi
 
 Se activa cuando **AMBAS** condiciones se cumplen:
 1. **Tendencia alcista**: MA50 > MA200 (el mercado sube a largo plazo)
-2. **Sobreventa**: RSI < 30 (el precio cayó temporalmente, buena oportunidad de entrada)
+2. **Sobreventa**: RSI < umbral configurado (por defecto 30, el precio cayó temporalmente, buena oportunidad de entrada)
 
 ### Alerta de Venta 🔴
 
 Se activa cuando **AMBAS** condiciones se cumplen:
 1. **Tendencia bajista**: MA50 < MA200 (el mercado baja a largo plazo)
-2. **Sobrecompra**: RSI > 70 (el precio subió temporalmente en un mercado que cae, riesgo de caída)
+2. **Sobrecompra**: RSI > umbral configurado (por defecto 70, el precio subió temporalmente en un mercado que cae, riesgo de caída)
+
+> **Nota**: Los umbrales de RSI son configurables desde el panel de Settings. También puedes activar o desactivar las alertas según necesites.
 
 ---
 
@@ -140,5 +142,20 @@ El dashboard está organizado con componentes profesionales (basados en Shadcn U
 
 - **Cards**: Tarjetas con bordes sutiles que contienen cada sección del dashboard (estadísticas, gráfico, índice de sentimiento, alertas).
 - **Badges**: Etiquetas de color que indican el estado del mercado (verde = Bullish/Compra, rojo = Bearish/Venta).
-- **Tabs**: Navegación por pestañas para cambiar entre la vista principal del Dashboard y el historial de Alertas.
+- **Tabs**: Navegación por pestañas para cambiar entre la vista principal del Dashboard, el historial de Alertas y la Configuración.
 - **Iconos**: Indicadores visuales (flechas de tendencia, actividad, reloj) que complementan la información numérica.
+- **Botón de Refresh**: Icono de flechas circulares en el header para actualizar los datos manualmente.
+
+---
+
+## Panel de Configuración
+
+Desde la pestaña **Settings** puedes ajustar los parámetros del sistema sin tocar código:
+
+- **Trading Pair**: Selecciona qué par analizar (BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT, ADA/USDT, DOGE/USDT).
+- **Intervalo de Análisis**: Cada cuántos minutos el backend consulta el mercado (1-120 minutos).
+- **Umbral RSI Sobreventa**: Valor por debajo del cual se genera una alerta de compra (por defecto 30).
+- **Umbral RSI Sobrecompra**: Valor por encima del cual se genera una alerta de venta (por defecto 70).
+- **Alertas Telegram**: Interruptor para activar o desactivar el envío de alertas a Telegram.
+
+Los cambios se aplican inmediatamente y el cron job se reinicia con la nueva configuración.

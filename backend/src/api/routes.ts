@@ -1,12 +1,30 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { getDatabase } from '../db/database';
-import { getChartData } from '../services/analyzer';
+import { getDatabase, saveDatabase } from '../db/database';
+import { getChartData, analyzeMarket } from '../services/analyzer';
+import { loadSettings } from '../services/settings';
 
 const router = express.Router();
 
 export function createMarketRouter(): express.Router {
+  router.post('/analyze', async (_req, res) => {
+    try {
+      const settings = loadSettings();
+      const result = await analyzeMarket({
+        symbol: settings.symbol,
+        rsiOversold: settings.rsiOversold,
+        rsiOverbought: settings.rsiOverbought,
+        alertsEnabled: settings.alertsEnabled,
+      });
+      saveDatabase();
+      res.json({ success: true, result });
+    } catch (error) {
+      console.error('Error running manual analysis:', error);
+      res.status(500).json({ error: 'Failed to run analysis' });
+    }
+  });
+
   router.get('/market-status', async (_req, res) => {
     try {
       const db = getDatabase();
