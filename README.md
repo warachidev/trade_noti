@@ -159,3 +159,38 @@ Desde la pestaña **Settings** puedes ajustar los parámetros del sistema sin to
 - **Alertas Telegram**: Interruptor para activar o desactivar el envío de alertas a Telegram.
 
 Los cambios se aplican inmediatamente y el cron job se reinicia con la nueva configuración.
+
+---
+
+## Despliegue
+
+### Docker (Desarrollo Local)
+
+```bash
+# Copiar variables de entorno
+cp .env.example .env
+# Editar .env con tus credenciales de Telegram
+
+# Levantar ambos servicios
+docker compose up -d
+
+# Ver logs
+docker compose logs -f backend
+```
+
+El backend corre en `http://localhost:3001` y el frontend en `http://localhost:80`.
+
+### Render
+
+1. Conecta tu repositorio GitHub a Render.
+2. Crea un **Web Service** usando `render.yaml`.
+3. Configura las variables de entorno: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+4. Render detectará automáticamente el `Dockerfile.backend`.
+5. Para el frontend, crea un **Static Site** apuntando al directorio `frontend` con build command `pnpm build` y publish directory `frontend/dist`.
+
+### Railway
+
+1. Conecta tu repositorio GitHub a Railway.
+2. Railway detectará automáticamente `railway.json` y `Dockerfile.backend`.
+3. Agrega las variables de entorno en el dashboard de Railway.
+4. Para persistencia de datos, Railway monta automáticamente un volumen para `/app/data`.

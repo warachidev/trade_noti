@@ -451,3 +451,42 @@ Esto significa que las peticiones a `/api/*` en el frontend (puerto 5173) se ree
 ### Agregar nuevos símbolos
 
 El parámetro `symbol` en `analyzeMarket()` y `getChartData()` acepta cualquier par válido de Binance (ej: `ETHUSDT`, `SOLUSDT`). La lista de símbolos disponibles en el UI se define en `App.tsx` en el array `SYMBOLS`. Para soportar múltiples símbolos simultáneamente, se necesitaría iterar sobre un array de símbolos en el cron job.
+
+---
+
+## Despliegue
+
+### Docker
+
+El proyecto incluye configuración Docker completa:
+
+| Archivo | Propósito |
+|---------|-----------|
+| `Dockerfile.backend` | Multi-stage build para el backend (Node.js 20 Alpine) |
+| `Dockerfile.frontend` | Multi-stage build para el frontend (nginx Alpine) |
+| `nginx.conf` | Configuración de nginx con proxy a /api → backend |
+| `docker-compose.yml` | Orquestación de ambos servicios + volumen persistente |
+
+**Backend Docker:**
+- Stage 1: Instala dependencias y compila TypeScript
+- Stage 2: Imagen minimalista con solo dependencias de producción
+- Expone puerto 3001
+- Volumen en `/app/data` para SQLite y settings
+
+**Frontend Docker:**
+- Stage 1: Build de producción con Vite
+- Stage 2: nginx Alpine sirviendo los archivos estáticos
+- Proxy `/api/` → `http://backend:3001`
+
+### Render
+
+- Usa `render.yaml` para configuración declarativa.
+- Requiere un **Web Service** para el backend con disco persistente (`/app/data`, 1GB).
+- Variables de entorno necesarias: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+
+### Railway
+
+- Usa `railway.json` para configuración automática.
+- Detecta `Dockerfile.backend` automáticamente.
+- Volumen persistente automático para `/app/data`.
+- Healthcheck en `/health`.
