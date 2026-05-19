@@ -69,8 +69,12 @@
 | Lenguaje | TypeScript | ~6.0 | Type safety |
 | Query/TanStack Query | @tanstack/react-query | ^5.100 | Data fetching + caching |
 | Gráficas | lightweight-charts | ^5.2 | TradingView charting |
+| UI Components | Shadcn UI (custom) | - | Cards, Badges, Buttons, Tabs |
+| Iconos | lucide-react | ^1.16 | SVG icon library |
 | Estilos | Tailwind CSS | ^4.3 | Utility-first CSS |
 | Tailwind Vite plugin | @tailwindcss/vite | ^4.3 | Tailwind integration |
+| Utilidades | class-variance-authority | ^0.7 | Component variants |
+| Utilidades | clsx + tailwind-merge | ^2.1 + ^3.6 | ClassName merging |
 
 ### Package Manager
 
@@ -120,7 +124,14 @@ noti_trade/
         ├── main.tsx                # Entry point + QueryClient provider
         ├── index.css               # Tailwind + base styles
         ├── App.tsx                 # Dashboard principal
+        ├── lib/
+        │   └── utils.ts            # cn() utility for className merging
         └── components/
+            ├── ui/
+            │   ├── button.tsx      # Shadcn Button component
+            │   ├── badge.tsx       # Shadcn Badge component
+            │   ├── card.tsx        # Shadcn Card component (Card, Header, Title, etc.)
+            │   └── tabs.tsx        # Shadcn Tabs component (Tabs, List, Trigger, Content)
             └── PriceChart.tsx      # TradingView Lightweight Charts wrapper
 ```
 
@@ -210,6 +221,72 @@ sql.js opera en memoria. La función `saveDatabase()` exporta la base de datos a
 ### Frontend
 
 No requiere variables de entorno. Usa el proxy de Vite para redirigir `/api` al backend.
+
+---
+
+## Path Alias
+
+El frontend usa `@/*` como alias para `./src/*`:
+
+```json
+// tsconfig.app.json
+"paths": {
+  "@/*": ["./src/*"]
+}
+```
+
+Esto permite imports limpios como `import { cn } from '@/lib/utils'`.
+
+---
+
+## Componentes UI (Shadcn-style)
+
+Los componentes siguen el patrón de Shadcn UI: código fuente en el proyecto, sin dependencia externa de librería de componentes.
+
+### Button
+
+- **Archivo**: `src/components/ui/button.tsx`
+- **Variants**: `default`, `destructive`, `outline`, `secondary`, `ghost`, `link`, `success`
+- **Sizes**: `default`, `sm`, `lg`, `icon`
+- **Uso**: `<Button variant="success" size="sm">Comprar</Button>`
+
+### Badge
+
+- **Archivo**: `src/components/ui/badge.tsx`
+- **Variants**: `default`, `secondary`, `destructive`, `outline`, `success`, `warning`
+- **Uso**: `<Badge variant="success">BUY</Badge>`
+
+### Card
+
+- **Archivo**: `src/components/ui/card.tsx`
+- **Sub-componentes**: `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent`, `CardFooter`
+- **Uso**:
+  ```tsx
+  <Card>
+    <CardHeader><CardTitle>Precio</CardTitle></CardHeader>
+    <CardContent>$100,000</CardContent>
+  </Card>
+  ```
+
+### Tabs
+
+- **Archivo**: `src/components/ui/tabs.tsx`
+- **Sub-componentes**: `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`
+- **Uso**:
+  ```tsx
+  <Tabs defaultValue="dashboard">
+    <TabsList><TabsTrigger value="dashboard">Dashboard</TabsTrigger></TabsList>
+    <TabsContent value="dashboard">...</TabsContent>
+  </Tabs>
+  ```
+
+### cn() Utility
+
+- **Archivo**: `src/lib/utils.ts`
+- **Función**: Combina `clsx` + `tailwind-merge` para manejar classNames condicionales sin conflictos.
+- **Uso**: `cn('base-class', isActive && 'active-class', customClassName)`
+
+---
 
 ---
 

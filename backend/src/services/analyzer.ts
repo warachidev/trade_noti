@@ -81,13 +81,17 @@ export async function analyzeMarket(symbol: string = 'BTCUSDT'): Promise<Analysi
 }
 
 export async function getChartData(symbol: string = 'BTCUSDT', interval: string = '1d', limit: number = 200) {
-  const rawKlines = await fetchRawKlines(symbol, interval, limit);
+  const displayLimit = limit;
+  const fetchLimit = Math.max(limit + 200, 500);
+
+  const rawKlines = await fetchRawKlines(symbol, interval, fetchLimit);
   const closePrices = rawKlines.map((k) => parseFloat(k.close));
 
   const ma50Data = SMA.calculate({ period: 50, values: closePrices });
   const ma200Data = SMA.calculate({ period: 200, values: closePrices });
 
-  const candles = rawKlines.map((kline) => ({
+  const displayKlines = rawKlines.slice(-displayLimit);
+  const displayCandles = displayKlines.map((kline) => ({
     time: Math.floor(kline.openTime / 1000),
     open: parseFloat(kline.open),
     high: parseFloat(kline.high),
@@ -95,32 +99,31 @@ export async function getChartData(symbol: string = 'BTCUSDT', interval: string 
     close: parseFloat(kline.close),
   }));
 
-  const volume = rawKlines.map((kline) => ({
+  const volume = displayKlines.map((kline) => ({
     time: Math.floor(kline.openTime / 1000),
     value: parseFloat(kline.volume),
     color: parseFloat(kline.close) >= parseFloat(kline.open) ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)',
   }));
 
+  const totalCandles = rawKlines.length;
+  const displayStartIndex = totalCandles - displayLimit;
+
   const ma50Series: Array<{ time: number; value: number }> = [];
   const ma200Series: Array<{ time: number; value: number }> = [];
 
-  for (let i = 0; i < rawKlines.length; i++) {
+  for (let i = displayStartIndex; i < totalCandles; i++) {
     const time = Math.floor(rawKlines[i].openTime / 1000);
 
-    if (i >= 50 + ma50Data.length - closePrices.length) {
-      const ma50Index = i - (closePrices.length - ma50Data.length);
-      if (ma50Index >= 0 && ma50Index < ma50Data.length) {
-        ma50Series.push({ time, value: ma50Data[ma50Index] });
-      }
+    const ma50Index = i - 49;
+    if (ma50Index >= 0 && ma50Index < ma50Data.length) {
+      ma50Series.push({ time, value: ma50Data[ma50Index] });
     }
 
-    if (i >= 200 + ma200Data.length - closePrices.length) {
-      const ma200Index = i - (closePrices.length - ma200Data.length);
-      if (ma200Index >= 0 && ma200Index < ma200Data.length) {
-        ma200Series.push({ time, value: ma200Data[ma200Index] });
-      }
+    const ma200Index = i - 199;
+    if (ma200Index >= 0 && ma200Index < ma200Data.length) {
+      ma200Series.push({ time, value: ma200Data[ma200Index] });
     }
   }
 
-  return { candles, volume, ma50: ma50Series, ma200: ma200Series };
+  return { candles: displayCandles, volume, ma50: ma50Series, ma200: ma200Series };
 }

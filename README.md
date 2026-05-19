@@ -131,3 +131,14 @@ NotiTrade utiliza APIs públicas y gratuitas:
 - **Telegram Bot API**: Envío de alertas a tu celular.
 
 No necesitas pagar por ningún dato ni suscripción.
+
+---
+
+## Interfaz de Usuario
+
+El dashboard está organizado con componentes profesionales (basados en Shadcn UI):
+
+- **Cards**: Tarjetas con bordes sutiles que contienen cada sección del dashboard (estadísticas, gráfico, índice de sentimiento, alertas).
+- **Badges**: Etiquetas de color que indican el estado del mercado (verde = Bullish/Compra, rojo = Bearish/Venta).
+- **Tabs**: Navegación por pestañas para cambiar entre la vista principal del Dashboard y el historial de Alertas.
+- **Iconos**: Indicadores visuales (flechas de tendencia, actividad, reloj) que complementan la información numérica.
