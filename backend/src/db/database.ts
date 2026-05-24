@@ -7,7 +7,11 @@ const DB_PATH = path.join(process.cwd(), 'data', 'notitrade.sqlite');
 let db: Database | null = null;
 
 export async function initDatabase(): Promise<Database> {
-  const SQL = await initSqlJs();
+  const SQL = await initSqlJs({
+    locateFile: (file: string) => {
+      return `https://cdn.jsdelivr.net/npm/sql.js@1.12.0/dist/${file}`;
+    },
+  });
 
   if (fs.existsSync(DB_PATH)) {
     const buffer = fs.readFileSync(DB_PATH);
