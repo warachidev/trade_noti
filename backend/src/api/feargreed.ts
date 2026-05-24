@@ -1,4 +1,4 @@
-import type { FearGreedIndex } from '../types';
+import type { FearGreedIndex } from '../types/index.js';
 
 const BASE_URL = 'https://api.alternative.me/fng/';
 

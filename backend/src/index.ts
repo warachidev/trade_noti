@@ -4,10 +4,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cron from 'node-cron';
 import path from 'path';
-import { initDatabase, saveDatabase } from './db/database';
-import { analyzeMarket } from './services/analyzer';
-import { loadSettings, saveSettings, type AppSettings } from './services/settings';
-import { createMarketRouter } from './api/routes';
+import { initDatabase, saveDatabase } from './db/database.js';
+import { analyzeMarket } from './services/analyzer.js';
+import { loadSettings, saveSettings, type AppSettings } from './services/settings.js';
+import { createMarketRouter } from './api/routes.js';
 
 const PORT = process.env.PORT || 3001;
 

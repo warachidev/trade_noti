@@ -1,7 +1,7 @@
-import { fetchRawKlines, fetchKlines } from '../api/binance';
-import { fetchFearGreedIndex } from '../api/feargreed';
-import { sendAlert } from '../services/telegram';
-import { getDatabase, saveDatabase } from '../db/database';
+import { fetchRawKlines, fetchKlines } from '../api/binance.js';
+import { fetchFearGreedIndex } from '../api/feargreed.js';
+import { sendAlert } from '../services/telegram.js';
+import { getDatabase, saveDatabase } from '../db/database.js';
 import { SMA, RSI } from 'technicalindicators';
 
 interface AnalysisResult {

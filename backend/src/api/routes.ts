@@ -1,9 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { getDatabase, saveDatabase } from '../db/database';
-import { getChartData, analyzeMarket } from '../services/analyzer';
-import { loadSettings } from '../services/settings';
+import { getDatabase, saveDatabase } from '../db/database.js';
+import { getChartData, analyzeMarket } from '../services/analyzer.js';
+import { loadSettings } from '../services/settings.js';
 
 const router = express.Router();
 

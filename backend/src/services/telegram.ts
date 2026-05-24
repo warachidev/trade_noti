@@ -32,8 +32,8 @@ export async function sendAlert(message: string): Promise<void> {
     await bot.sendMessage(TELEGRAM_CHAT_ID, safeMessage, { parse_mode: 'HTML' });
     console.log(`✅ Alert sent to Telegram: ${message.slice(0, 50)}...`);
   } catch (error: unknown) {
-    const err = error as { code?: string; response?: { body?: string } };
-    console.error('❌ Failed to send Telegram alert:', err.code || err.message || err);
+    const err = error as { code?: string; message?: string; response?: { body?: string } };
+    console.error('❌ Failed to send Telegram alert:', err.code || err.message || error);
     if (err.response?.body) {
       console.error('Telegram API Response:', err.response.body);
     }
