@@ -24,7 +24,7 @@ RUN pnpm install --prod --frozen-lockfile
 
 COPY --from=builder /app/backend/dist backend/dist
 COPY --from=builder /app/frontend/dist frontend/dist
-COPY --from=builder /app/sql-wasm.wasm ./
+COPY --from=builder /app/sql-wasm.wasm backend/sql-wasm.wasm
 
 RUN mkdir -p /app/data
 

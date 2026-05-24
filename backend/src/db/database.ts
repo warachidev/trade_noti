@@ -7,16 +7,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DB_PATH = path.join(process.cwd(), 'data', 'notitrade.sqlite');
-const WASM_PATH = path.resolve(__dirname, '../sql-wasm.wasm');
+
+const possibleWasmPaths = [
+  path.join(process.cwd(), 'sql-wasm.wasm'),
+  path.join(process.cwd(), 'backend', 'sql-wasm.wasm'),
+  path.join(__dirname, '..', 'sql-wasm.wasm'),
+  path.join(__dirname, '..', '..', 'sql-wasm.wasm'),
+];
 
 let db: Database | null = null;
 
 export async function initDatabase(): Promise<Database> {
+  const wasmPath = possibleWasmPaths.find(p => fs.existsSync(p));
+  if (!wasmPath) {
+    throw new Error(`sql-wasm.wasm not found. Searched: ${possibleWasmPaths.join(', ')}`);
+  }
+
   const SQL = await initSqlJs({
-    locateFile: (file: string) => {
-      if (file === 'sql-wasm.wasm') return WASM_PATH;
-      return file;
-    },
+    locateFile: () => wasmPath,
   });
 
   if (fs.existsSync(DB_PATH)) {
