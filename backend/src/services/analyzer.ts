@@ -70,14 +70,36 @@ export async function analyzeMarket(options: AnalyzeMarketOptions = {}): Promise
     `, [symbol, result.price, result.rsi, result.ma50, result.ma200, result.fearGreed]);
 
     if (alertsEnabled && result.isBullish && result.rsi !== null && result.rsi < rsiOversold) {
-      result.alert = `🚨 ¡ALERTA! ${symbol} está en sobreventa (RSI: ${result.rsi.toFixed(1)} < ${rsiOversold}) dentro de una macro tendencia alcista (MA50: ${result.ma50?.toFixed(0)} > MA200: ${result.ma200?.toFixed(0)}). Excelente oportunidad de compra a corto/mediano plazo.`;
+      const trend = '📈 Tendencia Alcista';
+      const tvLink = `https://www.tradingview.com/chart/?symbol=BINANCE:${symbol}`;
+      result.alert = `🟢 <b>ALERTA DE COMPRA</b>
+
+${symbol} está en sobreventa dentro de una tendencia alcista.
+<b>Precio:</b> $${result.price.toLocaleString()}
+<b>RSI:</b> ${result.rsi.toFixed(1)} (Umbral: ${rsiOversold})
+<b>MA50:</b> $${result.ma50?.toFixed(0)}
+<b>MA200:</b> $${result.ma200?.toFixed(0)}
+<b>Tendencia:</b> ${trend}
+
+🔍 <a href="${tvLink}">Ver en TradingView</a>`;
       await sendAlert(result.alert);
       db.run(`
         INSERT INTO alerts (symbol, type, message)
         VALUES (?, 'BUY', ?)
       `, [symbol, result.alert]);
     } else if (alertsEnabled && !result.isBullish && result.rsi !== null && result.rsi > rsiOverbought) {
-      result.alert = `⚠️ OJO: ${symbol} está sobrecomprado (RSI: ${result.rsi.toFixed(1)} > ${rsiOverbought}) en un mercado bajista (MA50: ${result.ma50?.toFixed(0)} < MA200: ${result.ma200?.toFixed(0)}). Riesgo de caída inminente.`;
+      const trend = '📉 Tendencia Bajista';
+      const tvLink = `https://www.tradingview.com/chart/?symbol=BINANCE:${symbol}`;
+      result.alert = `🔴 <b>ALERTA DE VENTA</b>
+
+${symbol} está sobrecomprado en un mercado bajista.
+<b>Precio:</b> $${result.price.toLocaleString()}
+<b>RSI:</b> ${result.rsi.toFixed(1)} (Umbral: ${rsiOverbought})
+<b>MA50:</b> $${result.ma50?.toFixed(0)}
+<b>MA200:</b> $${result.ma200?.toFixed(0)}
+<b>Tendencia:</b> ${trend}
+
+🔍 <a href="${tvLink}">Ver en TradingView</a>`;
       await sendAlert(result.alert);
       db.run(`
         INSERT INTO alerts (symbol, type, message)

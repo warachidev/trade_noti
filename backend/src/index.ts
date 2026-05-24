@@ -9,6 +9,7 @@ import { initDatabase, saveDatabase } from './db/database.js';
 import { analyzeMarket } from './services/analyzer.js';
 import { loadSettings, saveSettings, type AppSettings } from './services/settings.js';
 import { createMarketRouter } from './api/routes.js';
+import { sendStartupMessage } from './services/telegram.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,11 +88,19 @@ async function main() {
   });
 
   console.log(`📊 Running initial market analysis...`);
-  await analyzeMarket({
+  const initialResult = await analyzeMarket({
     symbol: settings.symbol,
     rsiOversold: settings.rsiOversold,
     rsiOverbought: settings.rsiOverbought,
     alertsEnabled: settings.alertsEnabled,
+  });
+
+  await sendStartupMessage(settings, {
+    price: initialResult.price,
+    rsi: initialResult.rsi,
+    ma50: initialResult.ma50,
+    ma200: initialResult.ma200,
+    fearGreed: initialResult.fearGreed,
   });
 
   startCronJob(settings);
