@@ -36,3 +36,7 @@ pnpm-debug.log*
 
 # Docker
 .env.docker
+
+# PM2 logs
+logs/
+*.pid
