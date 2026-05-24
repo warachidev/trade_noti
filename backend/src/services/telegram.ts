@@ -3,22 +3,39 @@ import TelegramBot from 'node-telegram-bot-api';
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
-if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) {
-  console.warn('⚠️  TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set. Alerts will be logged only.');
+if (!TELEGRAM_TOKEN) {
+  console.warn('⚠️  TELEGRAM_BOT_TOKEN is not set. Telegram alerts will be disabled.');
+}
+if (!TELEGRAM_CHAT_ID) {
+  console.warn('⚠️  TELEGRAM_CHAT_ID is not set. Telegram alerts will be disabled.');
 }
 
 const bot = TELEGRAM_TOKEN ? new TelegramBot(TELEGRAM_TOKEN) : null;
 
 export async function sendAlert(message: string): Promise<void> {
-  if (!bot || !TELEGRAM_CHAT_ID) {
+  if (!bot) {
+    console.log(`[ALERT LOG - Telegram Disabled] ${message}`);
+    return;
+  }
+
+  if (!TELEGRAM_CHAT_ID) {
+    console.error('❌ TELEGRAM_CHAT_ID is missing. Cannot send alert.');
     console.log(`[ALERT LOG] ${message}`);
     return;
   }
 
   try {
-    await bot.sendMessage(TELEGRAM_CHAT_ID, message, { parse_mode: 'HTML' });
+    const safeMessage = message
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    await bot.sendMessage(TELEGRAM_CHAT_ID, safeMessage, { parse_mode: 'HTML' });
     console.log(`✅ Alert sent to Telegram: ${message.slice(0, 50)}...`);
-  } catch (error) {
-    console.error('❌ Failed to send Telegram alert:', error);
+  } catch (error: unknown) {
+    const err = error as { code?: string; response?: { body?: string } };
+    console.error('❌ Failed to send Telegram alert:', err.code || err.message || err);
+    if (err.response?.body) {
+      console.error('Telegram API Response:', err.response.body);
+    }
   }
 }
