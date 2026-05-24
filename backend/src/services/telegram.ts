@@ -27,9 +27,7 @@ async function sendMessage(message: string): Promise<void> {
 
   try {
     const safeMessage = message
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+      .replace(/&/g, '&amp;');
     await bot.sendMessage(TELEGRAM_CHAT_ID, safeMessage, { parse_mode: 'HTML' });
     console.log(`✅ Message sent to Telegram: ${message.slice(0, 50)}...`);
   } catch (error: unknown) {
