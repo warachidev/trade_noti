@@ -458,35 +458,60 @@ El parámetro `symbol` en `analyzeMarket()` y `getChartData()` acepta cualquier 
 
 ### Docker
 
-El proyecto incluye configuración Docker completa:
+## Despliegue Local
+
+El proyecto está diseñado para ejecutarse localmente con **pm2** para operación 24/7.
+
+### pm2 Configuration
 
 | Archivo | Propósito |
 |---------|-----------|
-| `Dockerfile.backend` | Multi-stage build para el backend (Node.js 20 Alpine) |
-| `Dockerfile.frontend` | Multi-stage build para el frontend (nginx Alpine) |
-| `nginx.conf` | Configuración de nginx con proxy a /api → backend |
-| `docker-compose.yml` | Orquestación de ambos servicios + volumen persistente |
+| `ecosystem.config.js` | Configuración de pm2 para backend + frontend |
+| `logs/` | Directorio de logs de pm2 |
 
-**Backend Docker:**
-- Stage 1: Instala dependencias y compila TypeScript
-- Stage 2: Imagen minimalista con solo dependencias de producción
-- Expone puerto 3001
-- Volumen en `/app/data` para SQLite y settings
+**Backend:**
+- Corre en puerto 3001
+- Reinicio automático en caso de crash (`autorestart: true`)
+- Límite de memoria: 256MB
+- Logs en `logs/backend-error.log` y `logs/backend-out.log`
 
-**Frontend Docker:**
-- Stage 1: Build de producción con Vite
-- Stage 2: nginx Alpine sirviendo los archivos estáticos
-- Proxy `/api/` → `http://backend:3001`
+**Frontend:**
+- Corre en puerto 5173 (Vite preview mode)
+- Reinicio automático
+- Límite de memoria: 128MB
+- Logs en `logs/frontend-error.log` y `logs/frontend-out.log`
 
-### Render
+### Comandos de pm2
 
-- Usa `render.yaml` para configuración declarativa.
-- Requiere un **Web Service** para el backend con disco persistente (`/app/data`, 1GB).
-- Variables de entorno necesarias: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+```bash
+# Iniciar
+pm2 start ecosystem.config.js
 
-### Railway
+# Ver estado
+pm2 status
 
-- Usa `railway.json` para configuración automática.
-- Detecta `Dockerfile.backend` automáticamente.
-- Volumen persistente automático para `/app/data`.
-- Healthcheck en `/health`.
+# Ver logs
+pm2 logs
+
+# Detener
+pm2 stop all
+
+# Eliminar procesos
+pm2 delete all
+
+# Guardar para reinicio automático con el sistema
+pm2 save
+pm2 startup
+```
+
+### Exponer públicamente
+
+Para acceso externo, usa **ngrok** o **Cloudflare Tunnel**:
+
+```bash
+# ngrok
+ngrok http 5173
+
+# Cloudflare Tunnel
+cloudflared tunnel --url http://localhost:5173
+```

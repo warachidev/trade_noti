@@ -162,35 +162,64 @@ Los cambios se aplican inmediatamente y el cron job se reinicia con la nueva con
 
 ---
 
-## Despliegue
+## Ejecución Local
 
-### Docker (Desarrollo Local)
+NotiTrade está diseñado para correr localmente en tu computadora con **pm2** para ejecución 24/7.
+
+### Requisitos
+- Node.js >= 18
+- pnpm >= 8
+
+### Instalación
 
 ```bash
-# Copiar variables de entorno
-cp .env.example .env
-# Editar .env con tus credenciales de Telegram
+# Instalar dependencias
+pnpm install
 
-# Levantar ambos servicios
-docker compose up -d
-
-# Ver logs
-docker compose logs -f backend
+# Copiar y configurar variables de entorno
+cp backend/.env.example backend/.env
+# Editar backend/.env con tus credenciales de Telegram
 ```
 
-El backend corre en `http://localhost:3001` y el frontend en `http://localhost:80`.
+### Ejecutar con pm2
 
-### Render
+```bash
+# Construir ambos proyectos
+pnpm build
 
-1. Conecta tu repositorio GitHub a Render.
-2. Crea un **Web Service** usando `render.yaml`.
-3. Configura las variables de entorno: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
-4. Render detectará automáticamente el `Dockerfile.backend`.
-5. Para el frontend, crea un **Static Site** apuntando al directorio `frontend` con build command `pnpm build` y publish directory `frontend/dist`.
+# Iniciar servicios con pm2
+pm2 start ecosystem.config.js
 
-### Railway
+# Ver estado
+pm2 status
 
-1. Conecta tu repositorio GitHub a Railway.
-2. Railway detectará automáticamente `railway.json` y `Dockerfile.backend`.
-3. Agrega las variables de entorno en el dashboard de Railway.
-4. Para persistencia de datos, Railway monta automáticamente un volumen para `/app/data`.
+# Ver logs en tiempo real
+pm2 logs notitrade-backend
+pm2 logs notitrade-frontend
+```
+
+### Acceso
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:3001
+- **Health Check**: http://localhost:3001/health
+
+### Exponer públicamente (Opcional)
+
+Para acceder desde fuera de tu red local, puedes usar **ngrok**:
+
+```bash
+# Instalar ngrok
+winget install ngrok
+
+# Exponer el frontend
+ngrok http 5173
+```
+
+Te dará una URL pública como `https://abc123.ngrok-free.app`.
+
+### Detener servicios
+
+```bash
+pm2 stop all
+pm2 delete all
+```
