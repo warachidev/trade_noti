@@ -4,10 +4,14 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cron from 'node-cron';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { initDatabase, saveDatabase } from './db/database.js';
 import { analyzeMarket } from './services/analyzer.js';
 import { loadSettings, saveSettings, type AppSettings } from './services/settings.js';
 import { createMarketRouter } from './api/routes.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 3001;
 
