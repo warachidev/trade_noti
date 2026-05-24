@@ -183,19 +183,49 @@ cp backend/.env.example backend/.env
 
 ### Ejecutar con pm2
 
-```bash
-# Construir ambos proyectos
-pnpm build
+Existen dos formas de ejecutar NotiTrade con pm2:
 
-# Iniciar servicios con pm2
+#### Opción A: Ejecución Manual (Recomendada para empezar)
+El servicio solo funciona mientras tu computadora esté encendida y hayas iniciado pm2. No consume recursos si no lo usas.
+
+```bash
+# Iniciar
+pm2 start ecosystem.config.js
+```
+
+#### Opción B: Inicio Automático (24/7 real)
+NotiTrade se iniciará automáticamente cada vez que enciendas tu computadora o inicies sesión en Windows.
+
+```bash
+# Iniciar servicios
 pm2 start ecosystem.config.js
 
-# Ver estado
+# Guardar configuración actual
+pm2 save
+
+# Configurar para que inicie con Windows
+pm2 startup
+# Sigue las instrucciones que aparecen en pantalla (puede requerir ejecutar un comando como administrador)
+```
+
+### Gestión de Servicios
+
+```bash
+# Ver estado de los procesos
 pm2 status
 
 # Ver logs en tiempo real
 pm2 logs notitrade-backend
 pm2 logs notitrade-frontend
+
+# Detener temporalmente (se reanuda al reiniciar si usaste la Opción B)
+pm2 stop all
+
+# Detener y eliminar de la lista (No se reinicia automáticamente)
+pm2 delete all
+
+# Desactivar inicio automático (Solo si configuraste la Opción B)
+pm2 unstartup
 ```
 
 ### Acceso
