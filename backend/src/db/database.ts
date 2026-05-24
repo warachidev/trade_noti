@@ -1,15 +1,21 @@
 import initSqlJs, { Database } from 'sql.js';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const DB_PATH = path.join(process.cwd(), 'data', 'notitrade.sqlite');
+const WASM_PATH = path.resolve(__dirname, '../sql-wasm.wasm');
 
 let db: Database | null = null;
 
 export async function initDatabase(): Promise<Database> {
   const SQL = await initSqlJs({
     locateFile: (file: string) => {
-      return `https://cdn.jsdelivr.net/npm/sql.js@1.12.0/dist/${file}`;
+      if (file === 'sql-wasm.wasm') return WASM_PATH;
+      return file;
     },
   });
 

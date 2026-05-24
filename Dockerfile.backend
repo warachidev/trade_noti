@@ -12,6 +12,8 @@ COPY frontend/ frontend/
 RUN pnpm --filter frontend build
 RUN pnpm --filter backend build
 
+RUN find /app/node_modules/.pnpm -name "sql-wasm.wasm" -exec cp {} /app/sql-wasm.wasm \;
+
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -22,6 +24,7 @@ RUN pnpm install --prod --frozen-lockfile
 
 COPY --from=builder /app/backend/dist backend/dist
 COPY --from=builder /app/frontend/dist frontend/dist
+COPY --from=builder /app/sql-wasm.wasm ./
 
 RUN mkdir -p /app/data
 
