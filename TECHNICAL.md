@@ -456,53 +456,14 @@ El parámetro `symbol` en `analyzeMarket()` y `getChartData()` acepta cualquier 
 
 ## Despliegue
 
-### Docker
-
-## Despliegue Local
-
-El proyecto está diseñado para ejecutarse localmente con **pm2** para operación 24/7.
-
-### pm2 Configuration
-
-| Archivo | Propósito |
-|---------|-----------|
-| `ecosystem.config.js` | Configuración de pm2 para backend + frontend |
-| `logs/` | Directorio de logs de pm2 |
-
-**Backend:**
-- Corre en puerto 3001
-- Reinicio automático en caso de crash (`autorestart: true`)
-- Límite de memoria: 256MB
-- Logs en `logs/backend-error.log` y `logs/backend-out.log`
-
-**Frontend:**
-- Corre en puerto 5173 (Vite preview mode)
-- Reinicio automático
-- Límite de memoria: 128MB
-- Logs en `logs/frontend-error.log` y `logs/frontend-out.log`
-
-### Comandos de pm2
+### Producción
 
 ```bash
-# Iniciar
-pm2 start ecosystem.config.js
-
-# Ver estado
-pm2 status
-
-# Ver logs
-pm2 logs
-
-# Detener
-pm2 stop all
-
-# Eliminar procesos
-pm2 delete all
-
-# Guardar para reinicio automático con el sistema
-pm2 save
-pm2 startup
+pnpm build
+pnpm start:backend
 ```
+
+El backend sirve el frontend estático desde `frontend/dist` cuando `NODE_ENV=production`.
 
 ### Exponer públicamente
 

@@ -164,8 +164,6 @@ Los cambios se aplican inmediatamente y el cron job se reinicia con la nueva con
 
 ## Ejecución Local
 
-NotiTrade está diseñado para correr localmente en tu computadora con **pm2** para ejecución 24/7.
-
 ### Requisitos
 - Node.js >= 18
 - pnpm >= 8
@@ -181,55 +179,25 @@ cp backend/.env.example backend/.env
 # Editar backend/.env con tus credenciales de Telegram
 ```
 
-### Ejecutar con pm2
-
-Existen dos formas de ejecutar NotiTrade con pm2:
-
-#### Opción A: Ejecución Manual (Recomendada para empezar)
-El servicio solo funciona mientras tu computadora esté encendida y hayas iniciado pm2. No consume recursos si no lo usas.
+### Ejecutar en desarrollo
 
 ```bash
-# Iniciar
-pm2 start ecosystem.config.js
+pnpm dev
 ```
 
-#### Opción B: Inicio Automático (24/7 real)
-NotiTrade se iniciará automáticamente cada vez que enciendas tu computadora o inicies sesión en Windows.
+Esto inicia el backend (puerto 3001) y el frontend (puerto 5173) simultáneamente con hot reload.
+
+### Ejecutar en producción
 
 ```bash
-# Iniciar servicios
-pm2 start ecosystem.config.js
-
-# Guardar configuración actual
-pm2 save
-
-# Configurar para que inicie con Windows
-pm2 startup
-# Sigue las instrucciones que aparecen en pantalla (puede requerir ejecutar un comando como administrador)
+pnpm build
+pnpm start:backend
 ```
 
-### Gestión de Servicios
-
-```bash
-# Ver estado de los procesos
-pm2 status
-
-# Ver logs en tiempo real
-pm2 logs notitrade-backend
-pm2 logs notitrade-frontend
-
-# Detener temporalmente (se reanuda al reiniciar si usaste la Opción B)
-pm2 stop all
-
-# Detener y eliminar de la lista (No se reinicia automáticamente)
-pm2 delete all
-
-# Desactivar inicio automático (Solo si configuraste la Opción B)
-pm2 unstartup
-```
+El backend sirve el frontend estático en producción (puerto 3001).
 
 ### Acceso
-- **Frontend**: http://localhost:5173
+- **Frontend**: http://localhost:5173 (dev) o http://localhost:3001 (prod)
 - **Backend API**: http://localhost:3001
 - **Health Check**: http://localhost:3001/health
 
@@ -246,10 +214,3 @@ ngrok http 5173
 ```
 
 Te dará una URL pública como `https://abc123.ngrok-free.app`.
-
-### Detener servicios
-
-```bash
-pm2 stop all
-pm2 delete all
-```
