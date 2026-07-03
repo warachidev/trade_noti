@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './com
 import { Badge } from './components/ui/badge'
 import { Button } from './components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs'
-import { TrendingUp, TrendingDown, Activity, AlertTriangle, Clock, RefreshCw } from 'lucide-react'
+import { TrendingUp, TrendingDown, Activity, AlertTriangle, Clock, RefreshCw, AlertCircle, Target, Shield } from 'lucide-react'
 
 interface MarketStatus {
   symbol: string
@@ -16,6 +16,46 @@ interface MarketStatus {
   fearGreed: number | null
   isBullish: boolean | null
   lastUpdate: string | null
+}
+
+interface VolumeAnalysis {
+  trend: string | null
+  currentVolume: number
+  averageVolume: number
+  isSpike: boolean
+  spikeMultiplier: number
+}
+
+interface DivergenceAnalysis {
+  type: string | null
+  strength: number
+  description: string
+}
+
+interface SignalScore {
+  type: string
+  confidence: number
+  factors: string[]
+  invalidationLevel: number | null
+  riskRewardRatio: number | null
+  stopLoss: number | null
+  takeProfit: number | null
+}
+
+interface AnalysisResult {
+  symbol: string
+  price: number
+  ma50: number | null
+  ma200: number | null
+  rsi: number | null
+  fearGreed: number | null
+  isBullish: boolean | null
+  alert: string | null
+  priceVsMa200: string | null
+  volume: VolumeAnalysis
+  divergence: DivergenceAnalysis
+  shortSignal: SignalScore
+  longSignal: SignalScore
 }
 
 interface Alert {
@@ -47,6 +87,12 @@ const SYMBOLS = [
 async function fetchMarketStatus(): Promise<MarketStatus> {
   const response = await fetch('/api/market-status')
   if (!response.ok) throw new Error('Failed to fetch market status')
+  return response.json()
+}
+
+async function fetchAnalysis(): Promise<AnalysisResult> {
+  const response = await fetch('/api/analysis')
+  if (!response.ok) throw new Error('Failed to fetch analysis')
   return response.json()
 }
 
@@ -113,11 +159,54 @@ function formatTimeAgo(timestamp: string | null): string {
   return `${Math.floor(diffHours / 24)}d ago`
 }
 
+function getSignalBadgeVariant(type: string): 'success' | 'warning' | 'destructive' | 'default' {
+  switch (type) {
+    case 'STRONG_BUY': return 'success'
+    case 'BUY': return 'success'
+    case 'NEUTRAL': return 'default'
+    case 'SELL': return 'destructive'
+    case 'STRONG_SELL': return 'destructive'
+    default: return 'default'
+  }
+}
+
+function getConfidenceColor(confidence: number): string {
+  if (confidence >= 70) return 'text-green-400'
+  if (confidence >= 50) return 'text-yellow-400'
+  if (confidence >= 30) return 'text-orange-400'
+  return 'text-gray-500'
+}
+
+function getVolumeTrendLabel(trend: string | null): string {
+  switch (trend) {
+    case 'increasing': return 'Increasing'
+    case 'decreasing': return 'Decreasing'
+    case 'spike': return 'Volume Spike'
+    case 'normal': return 'Normal'
+    default: return 'N/A'
+  }
+}
+
+function getVolumeTrendColor(trend: string | null): string {
+  switch (trend) {
+    case 'increasing': return 'text-green-400'
+    case 'decreasing': return 'text-red-400'
+    case 'spike': return 'text-yellow-400'
+    default: return 'text-gray-500'
+  }
+}
+
 function App() {
   const { data: marketStatus, isLoading: loadingMarket, refetch: refetchMarket } = useQuery({
     queryKey: ['marketStatus'],
     queryFn: fetchMarketStatus,
     refetchInterval: 1000 * 30,
+  })
+
+  const { data: analysis, refetch: refetchAnalysis } = useQuery({
+    queryKey: ['analysis'],
+    queryFn: fetchAnalysis,
+    refetchInterval: 1000 * 60,
   })
 
   const { data: alerts, isLoading: loadingAlerts } = useQuery({
@@ -140,6 +229,7 @@ function App() {
     try {
       await triggerAnalysis()
       await refetchMarket()
+      await refetchAnalysis()
     } catch (error) {
       console.error('Failed to refresh:', error)
     } finally {
@@ -152,8 +242,10 @@ function App() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
       queryClient.invalidateQueries({ queryKey: ['marketStatus'] })
+      queryClient.invalidateQueries({ queryKey: ['analysis'] })
       refetchMarket()
       refetchSettings()
+      refetchAnalysis()
     },
   })
 
@@ -188,6 +280,7 @@ function App() {
             <h2 className="text-2xl font-bold text-white">Dashboard</h2>
             <TabsList>
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+              <TabsTrigger value="signals">Signals</TabsTrigger>
               <TabsTrigger value="alerts">Alerts</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
@@ -196,7 +289,7 @@ function App() {
           <TabsContent value="dashboard" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard
-                title="BTC Price"
+                title="Price"
                 value={loadingMarket ? 'Loading...' : formatPrice(marketStatus?.price ?? null)}
                 subtitle={marketStatus?.symbol ?? 'BTCUSDT'}
                 icon={<Activity className="h-4 w-4 text-blue-500" />}
@@ -314,6 +407,167 @@ function App() {
                 </CardContent>
               </Card>
             </div>
+
+            {analysis && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <SignalPanel title="LONG Signal" signal={analysis.longSignal} />
+                <SignalPanel title="SHORT Signal" signal={analysis.shortSignal} />
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="signals" className="space-y-6">
+            {analysis ? (
+              <>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <SignalPanel title="LONG (Buy) Signal" signal={analysis.longSignal} />
+                  <SignalPanel title="SHORT (Sell) Signal" signal={analysis.shortSignal} />
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Confluence Matrix</CardTitle>
+                    <CardDescription>Quick decision table based on indicator alignment</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-800">
+                            <th className="text-left py-3 px-4 text-gray-400">Indicator</th>
+                            <th className="text-center py-3 px-4 text-red-400">SHORT Setup</th>
+                            <th className="text-center py-3 px-4 text-green-400">LONG Setup</th>
+                            <th className="text-center py-3 px-4 text-gray-400">Current</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-gray-800/50">
+                            <td className="py-3 px-4 text-gray-300">Price vs MA200</td>
+                            <td className="py-3 px-4 text-center text-red-400">Below MA200</td>
+                            <td className="py-3 px-4 text-center text-green-400">Above MA200</td>
+                            <td className="py-3 px-4 text-center">
+                              <Badge variant={analysis.priceVsMa200 === 'above' ? 'success' : 'destructive'}>
+                                {analysis.priceVsMa200 === 'above' ? 'Above' : analysis.priceVsMa200 === 'below' ? 'Below' : 'N/A'}
+                              </Badge>
+                            </td>
+                          </tr>
+                          <tr className="border-b border-gray-800/50">
+                            <td className="py-3 px-4 text-gray-300">RSI (14)</td>
+                            <td className="py-3 px-4 text-center text-red-400">&gt; 70</td>
+                            <td className="py-3 px-4 text-center text-green-400">&lt; 30</td>
+                            <td className="py-3 px-4 text-center">
+                              <span className={analysis.rsi !== null ? (analysis.rsi > 70 ? 'text-red-400' : analysis.rsi < 30 ? 'text-green-400' : 'text-yellow-400') : 'text-gray-500'}>
+                                {analysis.rsi?.toFixed(1) ?? 'N/A'}
+                              </span>
+                            </td>
+                          </tr>
+                          <tr className="border-b border-gray-800/50">
+                            <td className="py-3 px-4 text-gray-300">Fear & Greed</td>
+                            <td className="py-3 px-4 text-center text-red-400">&gt; 75 (Extreme Greed)</td>
+                            <td className="py-3 px-4 text-center text-green-400">&lt; 25 (Extreme Fear)</td>
+                            <td className="py-3 px-4 text-center">
+                              <span className={getFearGreedColor(analysis.fearGreed)}>
+                                {analysis.fearGreed ?? 'N/A'} - {getFearGreedLabel(analysis.fearGreed)}
+                              </span>
+                            </td>
+                          </tr>
+                          <tr className="border-b border-gray-800/50">
+                            <td className="py-3 px-4 text-gray-300">Divergence</td>
+                            <td className="py-3 px-4 text-center text-red-400">Bearish</td>
+                            <td className="py-3 px-4 text-center text-green-400">Bullish</td>
+                            <td className="py-3 px-4 text-center">
+                              {analysis.divergence.type === 'bearish' ? (
+                                <Badge variant="destructive">Bearish ({analysis.divergence.strength.toFixed(0)}%)</Badge>
+                              ) : analysis.divergence.type === 'bullish' ? (
+                                <Badge variant="success">Bullish ({analysis.divergence.strength.toFixed(0)}%)</Badge>
+                              ) : (
+                                <span className="text-gray-500">None</span>
+                              )}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="py-3 px-4 text-gray-300">Volume</td>
+                            <td className="py-3 px-4 text-center text-red-400">Decreasing (weak buy)</td>
+                            <td className="py-3 px-4 text-center text-green-400">Spike (capitulation)</td>
+                            <td className="py-3 px-4 text-center">
+                              <span className={getVolumeTrendColor(analysis.volume.trend)}>
+                                {getVolumeTrendLabel(analysis.volume.trend)}
+                              </span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Risk Management</CardTitle>
+                    <CardDescription>Invalidation levels and risk:reward ratios</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-800">
+                        <h3 className="text-green-400 font-semibold mb-3 flex items-center gap-2">
+                          <Shield className="h-4 w-4" />
+                          LONG Position
+                        </h3>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Stop Loss</span>
+                            <span className="text-white">{formatPrice(analysis.longSignal.stopLoss)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Take Profit</span>
+                            <span className="text-white">{formatPrice(analysis.longSignal.takeProfit)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Invalidation Level</span>
+                            <span className="text-white">{formatPrice(analysis.longSignal.invalidationLevel)}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-gray-800 pt-2 mt-2">
+                            <span className="text-gray-400">Risk:Reward</span>
+                            <span className="text-green-400 font-semibold">
+                              {analysis.longSignal.riskRewardRatio?.toFixed(1)}:1
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-800">
+                        <h3 className="text-red-400 font-semibold mb-3 flex items-center gap-2">
+                          <Target className="h-4 w-4" />
+                          SHORT Position
+                        </h3>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Stop Loss</span>
+                            <span className="text-white">{formatPrice(analysis.shortSignal.stopLoss)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Take Profit</span>
+                            <span className="text-white">{formatPrice(analysis.shortSignal.takeProfit)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Invalidation Level</span>
+                            <span className="text-white">{formatPrice(analysis.shortSignal.invalidationLevel)}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-gray-800 pt-2 mt-2">
+                            <span className="text-gray-400">Risk:Reward</span>
+                            <span className="text-red-400 font-semibold">
+                              {analysis.shortSignal.riskRewardRatio?.toFixed(1)}:1
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <div className="text-center py-8 text-gray-500">Loading analysis...</div>
+            )}
           </TabsContent>
 
           <TabsContent value="alerts">
@@ -402,6 +656,70 @@ function StatCard({
       <CardContent>
         <div className="text-2xl font-bold text-white">{value}</div>
         <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
+      </CardContent>
+    </Card>
+  )
+}
+
+function SignalPanel({
+  title,
+  signal,
+}: {
+  title: string
+  signal: SignalScore
+}) {
+  const isLong = title.includes('LONG')
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className={isLong ? 'text-green-400' : 'text-red-400'}>{title}</CardTitle>
+          <Badge variant={getSignalBadgeVariant(signal.type)}>{signal.type.replace('_', ' ')}</Badge>
+        </div>
+        <CardDescription>Confidence: <span className={getConfidenceColor(signal.confidence)}>{signal.confidence}%</span></CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-4">
+          <div className="w-full bg-gray-800 rounded-full h-2">
+            <div
+              className={`h-2 rounded-full transition-all ${
+                signal.confidence >= 70
+                  ? isLong ? 'bg-green-500' : 'bg-red-500'
+                  : signal.confidence >= 50
+                    ? 'bg-yellow-500'
+                    : 'bg-gray-600'
+              }`}
+              style={{ width: `${signal.confidence}%` }}
+            />
+          </div>
+        </div>
+
+        {signal.factors.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {signal.factors.map((factor, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm">
+                <AlertCircle className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                <span className="text-gray-300">{factor}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-3 pt-3 border-t border-gray-800">
+          <div>
+            <p className="text-xs text-gray-500">Stop Loss</p>
+            <p className="text-sm font-medium text-white">{formatPrice(signal.stopLoss)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">Take Profit</p>
+            <p className="text-sm font-medium text-white">{formatPrice(signal.takeProfit)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500">R:R Ratio</p>
+            <p className="text-sm font-medium text-white">{signal.riskRewardRatio?.toFixed(1)}:1</p>
+          </div>
+        </div>
       </CardContent>
     </Card>
   )

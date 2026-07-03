@@ -163,6 +163,8 @@ noti_trade/
 | `/api/market-status` | GET | - | `MarketStatus` |
 | `/api/alerts` | GET | - | `Alert[]` |
 | `/api/chart-data` | GET | `symbol`, `interval`, `limit` | `ChartData` |
+| `/api/analysis` | GET | - | `AnalysisResult` (señales completas) |
+| `/api/analyze` | POST | - | `{ success, result }` (análisis manual) |
 | `/health` | GET | - | `{ status, timestamp }` |
 
 ---
@@ -387,6 +389,150 @@ Crea el Express Router con todos los endpoints.
 - `GET /api/market-status`: Último snapshot de mercado
 - `GET /api/alerts`: Últimas 50 alertas ordenadas por fecha
 - `GET /api/chart-data`: Datos para el gráfico (velas, volumen, MAs)
+- `GET /api/analysis`: Análisis completo con señales SHORT/LONG, divergencias, volumen y gestión de riesgo
+- `POST /api/analyze`: Ejecuta análisis manual y guarda en DB
+
+---
+
+## Sistema de Análisis Avanzado
+
+### Tipos y Interfaces
+
+```typescript
+type SignalType = 'STRONG_BUY' | 'BUY' | 'NEUTRAL' | 'SELL' | 'STRONG_SELL'
+type DivergenceType = 'bullish' | 'bearish' | null
+type VolumeTrendType = 'increasing' | 'decreasing' | 'spike' | 'normal' | null
+type PriceVsMaType = 'above' | 'below' | null
+
+interface VolumeAnalysis {
+  trend: VolumeTrendType
+  currentVolume: number
+  averageVolume: number
+  isSpike: boolean
+  spikeMultiplier: number
+}
+
+interface DivergenceAnalysis {
+  type: DivergenceType
+  strength: number      // 0-100
+  description: string
+}
+
+interface SignalScore {
+  type: SignalType
+  confidence: number    // 0-100
+  factors: string[]     // Factores que contribuyen
+  invalidationLevel: number | null
+  riskRewardRatio: number | null
+  stopLoss: number | null
+  takeProfit: number | null
+}
+```
+
+### `analyzeVolume(klines: RawKline[])` — `backend/src/services/analyzer.ts`
+
+Analiza la tendencia del volumen para detectar patrones institucionales.
+
+**Lógica:**
+- Compara volumen reciente (últimas 5 velas) vs promedio (últimas 20 velas)
+- **Spike**: Volumen actual > 2x el promedio (señal de capitulación)
+- **Increasing**: Promedio reciente > 1.3x promedio general
+- **Decreasing**: Promedio reciente < 0.7x promedio general
+- **Normal**: Sin desviación significativa
+
+**Uso en señales:**
+- Spike + RSI oversold = capitulación → señal LONG fuerte (+15 pts)
+- Decreasing en rebote alcista = bull trap → señal SHORT (+10 pts)
+
+### `detectDivergence(klines: RawKline[])` — `backend/src/services/analyzer.ts`
+
+Detecta divergencias entre precio y RSI en las últimas 20 velas horarias.
+
+**Divergencia Alcista (Bullish):**
+- Precio hace mínimo más bajo pero RSI hace mínimo más alto
+- Indica agotamiento de vendedores
+- Fuerza calculada: `(rsiMax - rsiMin) / 10 * 100` (max 100%)
+
+**Divergencia Bajista (Bearish):**
+- Precio hace máximo más alto pero RSI hace máximo más bajo
+- Indica fatiga de compradores
+- Fuerza calculada igual que alcista
+
+**Uso en señales:**
+- Divergencia alcista → +20 pts señal LONG
+- Divergencia bajista → +20 pts señal SHORT
+
+### `evaluateShortSignal(result, rsiOverbought)` — `backend/src/services/analyzer.ts`
+
+Evalúa la probabilidad de una posición SHORT basada en confluencia de factores.
+
+**Puntuación (0-100):**
+
+| Factor | Puntos | Condición |
+|--------|--------|-----------|
+| Precio bajo MA200 | +25 | Tendencia bajista macro |
+| RSI > 70 | +20 | Sobrecompra fuerte |
+| RSI > umbral | +10 | Sobrecompra moderada |
+| Divergencia bajista | +20 | Fatiga alcista confirmada |
+| Volumen decreciente | +10 | Débil interés de compra |
+| Fear & Greed > 75 | +15 | Euforia del mercado |
+| Fear & Greed > 55 | +5 | Optimismo moderado |
+| **Fear & Greed < 30** | **-30** | ⚠️ Riesgo de short squeeze |
+
+**Clasificación:**
+- `STRONG_SELL`: confianza >= 70
+- `SELL`: confianza >= 50
+- `NEUTRAL`: confianza < 50
+
+**Gestión de riesgo:**
+- Stop Loss: MA50 * 1.01 (1% sobre MA50)
+- Invalidation Level: mismo que Stop Loss
+- Take Profit: precio - (riesgo * 2)
+- R:R Ratio: 2:1 mínimo
+
+### `evaluateLongSignal(result, rsiOversold)` — `backend/src/services/analyzer.ts`
+
+Evalúa la probabilidad de una posición LONG basada en confluencia de factores.
+
+**Puntuación (0-100):**
+
+| Factor | Puntos | Condición |
+|--------|--------|-----------|
+| Precio sobre MA200 | +25 | Tendencia alcista macro |
+| RSI < 25 | +20 | Sobreventa profunda |
+| RSI < umbral | +15 | Sobreventa moderada |
+| Divergencia alcista | +20 | Agotamiento de venta |
+| Volume spike | +15 | Capitulación detectada |
+| Fear & Greed < 25 | +15 | Miedo extremo (zona acumulación) |
+| Fear & Greed < 45 | +5 | Miedo moderado |
+
+**Clasificación:**
+- `STRONG_BUY`: confianza >= 70
+- `BUY`: confianza >= 50
+- `NEUTRAL`: confianza < 50
+
+**Gestión de riesgo:**
+- Stop Loss: MA200 * 0.99 (1% bajo MA200)
+- Invalidation Level: mismo que Stop Loss
+- Take Profit: precio + (riesgo * 2)
+- R:R Ratio: 2:1 mínimo
+
+### Regla Anti-Suicidio (Short Squeeze)
+
+> ⚠️ **Nunca abrir SHORT si Fear & Greed < 30**
+>
+> Aunque la tendencia sea bajista, el riesgo de un rebote violento por liquidación de cortos es extremadamente alto. El sistema penaliza -30 puntos automáticamente en esta zona.
+
+### Matriz de Confluencia
+
+| Indicador | SHORT Setup | LONG Setup |
+|-----------|-------------|------------|
+| Precio vs MA200 | Por debajo | Por encima |
+| Interacción MA | Rechazo en MA50/200 | Soporte en MA50/200 |
+| RSI (14) | > 70 o divergencia bajista | < 30 o divergencia alcista |
+| Fear & Greed | > 75 (Codicia Extrema) | < 25 (Miedo Extremo) |
+| Volumen | Decreciente en rebote | Spike de capitulación |
+| Estructura | Rompe soportes | Rompe resistencias |
 
 ---
 

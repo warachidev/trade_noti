@@ -74,6 +74,22 @@ export function createMarketRouter(): express.Router {
     }
   });
 
+  router.get('/analysis', async (_req, res) => {
+    try {
+      const settings = loadSettings();
+      const result = await analyzeMarket({
+        symbol: settings.symbol,
+        rsiOversold: settings.rsiOversold,
+        rsiOverbought: settings.rsiOverbought,
+        alertsEnabled: false,
+      });
+      res.json(result);
+    } catch (error) {
+      console.error('Error fetching analysis:', error);
+      res.status(500).json({ error: 'Failed to fetch analysis' });
+    }
+  });
+
   router.get('/alerts', async (_req, res) => {
     try {
       const db = getDatabase();
